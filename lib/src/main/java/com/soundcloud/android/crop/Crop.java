@@ -26,6 +26,8 @@ public class Crop {
         String MAX_X = "max_x";
         String MAX_Y = "max_y";
         String ERROR = "error";
+        String CROP_RESULT_LEFT_POSITION = "x_position";
+        String CROP_RESULT_TOP_POSITION = "y_position";
     }
 
     private Intent cropIntent;

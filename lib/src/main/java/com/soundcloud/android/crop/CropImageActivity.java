@@ -67,6 +67,8 @@ public class CropImageActivity extends MonitoredActivity {
     private CropImageView imageView;
     private HighlightView cropView;
 
+    private Rect rectResult;
+
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
@@ -269,9 +271,9 @@ public class CropImageActivity extends MonitoredActivity {
         isSaving = true;
 
         Bitmap croppedImage;
-        Rect r = cropView.getScaledCropRect(sampleSize);
-        int width = r.width();
-        int height = r.height();
+        rectResult = cropView.getScaledCropRect(sampleSize);
+        int width = rectResult.width();
+        int height = rectResult.height();
 
         int outWidth = width;
         int outHeight = height;
@@ -287,7 +289,7 @@ public class CropImageActivity extends MonitoredActivity {
         }
 
         try {
-            croppedImage = decodeRegionCrop(r, outWidth, outHeight);
+            croppedImage = decodeRegionCrop(outWidth, outHeight);
         } catch (IllegalArgumentException e) {
             setResultException(e);
             finish();
@@ -317,7 +319,7 @@ public class CropImageActivity extends MonitoredActivity {
         }
     }
 
-    private Bitmap decodeRegionCrop(Rect rect, int outWidth, int outHeight) {
+    private Bitmap decodeRegionCrop(int outWidth, int outHeight) {
         // Release memory now
         clearImageView();
 
@@ -335,23 +337,23 @@ public class CropImageActivity extends MonitoredActivity {
                 matrix.setRotate(-exifRotation);
 
                 RectF adjusted = new RectF();
-                matrix.mapRect(adjusted, new RectF(rect));
+                matrix.mapRect(adjusted, new RectF(rectResult));
 
                 // Adjust to account for origin at 0,0
                 adjusted.offset(adjusted.left < 0 ? width : 0, adjusted.top < 0 ? height : 0);
-                rect = new Rect((int) adjusted.left, (int) adjusted.top, (int) adjusted.right, (int) adjusted.bottom);
+                rectResult = new Rect((int) adjusted.left, (int) adjusted.top, (int) adjusted.right, (int) adjusted.bottom);
             }
 
             try {
-                croppedImage = decoder.decodeRegion(rect, new BitmapFactory.Options());
-                if (croppedImage != null && (rect.width() > outWidth || rect.height() > outHeight)) {
+                croppedImage = decoder.decodeRegion(rectResult, new BitmapFactory.Options());
+                if (croppedImage != null && (rectResult.width() > outWidth || rectResult.height() > outHeight)) {
                     Matrix matrix = new Matrix();
-                    matrix.postScale((float) outWidth / rect.width(), (float) outHeight / rect.height());
+                    matrix.postScale((float) outWidth / rectResult.width(), (float) outHeight / rectResult.height());
                     croppedImage = Bitmap.createBitmap(croppedImage, 0, 0, croppedImage.getWidth(), croppedImage.getHeight(), matrix, true);
                 }
             } catch (IllegalArgumentException e) {
                 // Rethrow with some extra information
-                throw new IllegalArgumentException("Rectangle " + rect + " is outside of the image ("
+                throw new IllegalArgumentException("Rectangle " + rectResult + " is outside of the image ("
                         + width + "," + height + "," + exifRotation + ")", e);
             }
 
@@ -427,7 +429,11 @@ public class CropImageActivity extends MonitoredActivity {
     }
 
     private void setResultUri(Uri uri) {
-        setResult(RESULT_OK, new Intent().putExtra(MediaStore.EXTRA_OUTPUT, uri));
+        final Intent intent = new Intent();
+        intent.putExtra(Crop.Extra.CROP_RESULT_LEFT_POSITION, rectResult.left);
+        intent.putExtra(Crop.Extra.CROP_RESULT_TOP_POSITION, rectResult.top);
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, uri);
+        setResult(RESULT_OK, intent);
     }
 
     private void setResultException(Throwable throwable) {
